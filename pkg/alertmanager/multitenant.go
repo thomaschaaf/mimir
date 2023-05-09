@@ -660,52 +660,16 @@ func (am *MultitenantAlertmanager) syncConfigs(cfgs map[string]alertspb.AlertCon
 // setConfig applies the given configuration to the alertmanager for `userID`,
 // creating an alertmanager if it doesn't already exist.
 func (am *MultitenantAlertmanager) setConfig(cfg alertspb.AlertConfigDesc) error {
-	var userAmConfig *amconfig.Config
-	var err error
-	var userTemplateDir = filepath.Join(am.getTenantDirectory(cfg.User), templatesDir)
-	var pathsToRemove = make(map[string]struct{})
-
-	// List existing files to keep track of the ones to be removed
-	if oldTemplateFiles, err := os.ReadDir(userTemplateDir); err == nil {
-		for _, file := range oldTemplateFiles {
-			templateFilePath, err := safeTemplateFilepath(userTemplateDir, file.Name())
-			if err != nil {
-				return err
-			}
-			pathsToRemove[templateFilePath] = struct{}{}
-		}
-	}
-
-	templates := make([]io.Reader, 0, len(cfg.Templates))
-	for _, tmpl := range cfg.Templates {
-		templateFilePath, err := safeTemplateFilepath(userTemplateDir, tmpl.Filename)
-		if err != nil {
-			return err
-		}
-
-		// Removing from pathsToRemove map the files that still exists in the config
-		delete(pathsToRemove, templateFilePath)
-		_, err = storeTemplateFile(templateFilePath, tmpl.Body)
-		templates = append(templates, strings.NewReader(tmpl.Body))
-		if err != nil {
-			return err
-		}
-	}
-
-	for pathToRemove := range pathsToRemove {
-		err := os.Remove(pathToRemove)
-		if err != nil {
-			level.Warn(am.logger).Log("msg", "failed to remove file", "file", pathToRemove, "err", err)
-		}
-	}
-
 	level.Debug(am.logger).Log("msg", "setting config", "user", cfg.User)
 
 	am.alertmanagersMtx.Lock()
 	defer am.alertmanagersMtx.Unlock()
+
 	existing, hasExisting := am.alertmanagers[cfg.User]
 
 	rawCfg := cfg.RawConfig
+	var userAmConfig *amconfig.Config
+	var err error
 	if cfg.RawConfig == "" {
 		if am.fallbackConfig == "" {
 			return fmt.Errorf("blank Alertmanager configuration for %v", cfg.User)
@@ -732,6 +696,11 @@ func (am *MultitenantAlertmanager) setConfig(cfg alertspb.AlertConfigDesc) error
 	// 3) finally, the cortex AM instance is restarted and the running version is no longer present
 	if userAmConfig == nil {
 		return fmt.Errorf("no usable Alertmanager configuration for %v", cfg.User)
+	}
+
+	templates := make([]io.Reader, 0, len(cfg.Templates))
+	for _, tmpl := range cfg.Templates {
+		templates = append(templates, strings.NewReader(tmpl.Body))
 	}
 
 	// If no Alertmanager instance exists for this user yet, start one.
