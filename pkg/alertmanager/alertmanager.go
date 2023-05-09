@@ -10,6 +10,7 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -23,6 +24,7 @@ import (
 	"github.com/grafana/dskit/flagext"
 	"github.com/pkg/errors"
 	"github.com/prometheus/alertmanager/api"
+	"github.com/prometheus/alertmanager/asset"
 	"github.com/prometheus/alertmanager/cluster"
 	"github.com/prometheus/alertmanager/cluster/clusterpb"
 	"github.com/prometheus/alertmanager/config"
@@ -310,7 +312,7 @@ func clusterWait(position func() int, timeout time.Duration) func() time.Duratio
 }
 
 // ApplyConfig applies a new configuration to an Alertmanager.
-func (am *Alertmanager) ApplyConfig(userID string, conf *config.Config, rawCfg string) error {
+func (am *Alertmanager) ApplyConfig(userID string, conf *config.Config, tmpls []io.Reader, rawCfg string) error {
 	templateFiles := make([]string, len(conf.Templates))
 	for i, t := range conf.Templates {
 		templateFilepath, err := safeTemplateFilepath(filepath.Join(am.cfg.TenantDataDir, templatesDir), t)
@@ -321,7 +323,8 @@ func (am *Alertmanager) ApplyConfig(userID string, conf *config.Config, rawCfg s
 		templateFiles[i] = templateFilepath
 	}
 
-	tmpl, err := template.FromGlobs(templateFiles, withCustomFunctions(userID))
+	// tmpl, err := template.FromGlobs(templateFiles, withCustomFunctions(userID))
+	tmpl, err := loadTemplates(tmpls, withCustomFunctions(userID))
 	if err != nil {
 		return err
 	}
@@ -721,4 +724,36 @@ func alertSize(alert model.Alert) int {
 	}
 	size += len(alert.GeneratorURL)
 	return size
+}
+
+// loadTemplates produces a template.Template from several in-memory template files.
+// It is adapted from FromGlobs in github.com/prometheus/alertmanager/template/template.go
+func loadTemplates(tmpls []io.Reader, options ...template.Option) (*template.Template, error) {
+	t, err := template.New(options...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prometheus keeps its default templates in a virtual filesystem.
+	// Ensure these are included - this does not actually hit the disk.
+	defaultTemplates := []string{"default.tmpl", "email.tmpl"}
+
+	for _, file := range defaultTemplates {
+		f, err := asset.Assets.Open(path.Join("/templates", file))
+		if err != nil {
+			return nil, err
+		}
+		if err := t.Parse(f); err != nil {
+			f.Close()
+			return nil, err
+		}
+		f.Close()
+	}
+
+	for _, tp := range tmpls {
+		if err := t.Parse(tp); err != nil {
+			return nil, err
+		}
+	}
+	return t, nil
 }
