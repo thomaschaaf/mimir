@@ -25,15 +25,17 @@ var (
 // InitLogger initialises the global gokit logger (util_log.Logger) and overrides the
 // default logger for the server.
 func InitLogger(cfg *server.Config) {
+	lvl := logging.Level{}
+	lvl.Set("error")
 	l := newBasicLogger(cfg.LogFormat)
 
 	// when using util_log.Logger, skip 5 stack frames.
 	logger := log.With(l, "caller", log.Caller(5))
 	// Must put the level filter last for efficiency.
-	Logger = level.NewFilter(logger, cfg.LogLevel.Gokit)
+	Logger = level.NewFilter(logger, lvl.Gokit)
 
 	// cfg.Log wraps log function, skip 6 stack frames to get caller information.
-	cfg.Log = logging.GoKit(level.NewFilter(log.With(l, "caller", log.Caller(6)), cfg.LogLevel.Gokit))
+	cfg.Log = logging.GoKit(level.NewFilter(log.With(l, "caller", log.Caller(6)), lvl.Gokit))
 }
 
 func newBasicLogger(format logging.Format) log.Logger {
