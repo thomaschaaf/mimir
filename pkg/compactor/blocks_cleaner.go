@@ -149,8 +149,8 @@ func (c *BlocksCleaner) stopping(error) error {
 }
 
 func (c *BlocksCleaner) starting(ctx context.Context) error {
-	// Run an initial cleanup in starting state. (Note that compactor no longer waits
-	// for blocks cleaner to finish starting before it starts compactions.)
+	// Run an initial cleanup in starting state. (Note that the compactor no longer waits
+	// for the blocks cleaner to finish starting before it starts compactions.)
 	c.runCleanup(ctx, false)
 
 	return nil
@@ -290,7 +290,6 @@ func (c *BlocksCleaner) deleteUserMarkedForDeletion(ctx context.Context, userID 
 		level.Info(userLogger).Log("msg", "deleted block", "block", id)
 		return nil
 	})
-
 	if err != nil {
 		return err
 	}
@@ -338,11 +337,11 @@ func (c *BlocksCleaner) deleteUserMarkedForDeletion(ctx context.Context, userID 
 
 	level.Info(userLogger).Log("msg", "cleaning up remaining blocks data for tenant marked for deletion")
 
-	// Let's do final cleanup of tenant.
+	// Let's do a final cleanup of tenant.
 	if deleted, err := bucket.DeletePrefix(ctx, userBucket, block.DebugMetas, userLogger); err != nil {
-		return errors.Wrap(err, "failed to delete "+block.DebugMetas)
+		return errors.Wrapf(err, "failed to delete %s", block.DebugMetas)
 	} else if deleted > 0 {
-		level.Info(userLogger).Log("msg", "deleted files under "+block.DebugMetas+" for tenant marked for deletion", "count", deleted)
+		level.Info(userLogger).Log("msg", fmt.Sprintf("deleted files under %s for tenant marked for deletion", block.DebugMetas), "count", deleted)
 	}
 
 	// Tenant deletion mark file is inside Markers as well.

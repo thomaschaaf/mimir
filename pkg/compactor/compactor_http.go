@@ -28,9 +28,7 @@ type statusPageContents struct {
 
 func writeMessage(w http.ResponseWriter, message string) {
 	w.WriteHeader(http.StatusOK)
-	err := statusPageTemplate.Execute(w, statusPageContents{Message: message})
-
-	if err != nil {
+	if err := statusPageTemplate.Execute(w, statusPageContents{Message: message}); err != nil {
 		level.Error(util_log.Logger).Log("msg", "unable to serve compactor ring page", "err", err)
 	}
 }

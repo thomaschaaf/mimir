@@ -160,11 +160,10 @@ func (s *Syncer) GarbageCollect(ctx context.Context) error {
 	return nil
 }
 
-// Grouper is responsible to group all known blocks into compaction Job which are safe to be
-// compacted concurrently.
+// Grouper is responsible for grouping all known blocks into concurrency safe compaction Jobs.
 type Grouper interface {
 	// Groups returns the compaction jobs for all blocks currently known to the syncer.
-	// It creates all jobs from the scratch on every call.
+	// It creates all jobs from scratch on every call.
 	Groups(blocks map[ulid.ULID]*block.Meta) (res []*Job, err error)
 }
 

@@ -71,7 +71,7 @@ type BlocksGrouperFactory func(
 	reg prometheus.Registerer,
 ) Grouper
 
-// BlocksCompactorFactory builds and returns the compactor and planner to use to compact a tenant's blocks.
+// BlocksCompactorFactory builds and returns the compactor and planner for compacting a tenant's blocks.
 type BlocksCompactorFactory func(
 	ctx context.Context,
 	cfg Config,
@@ -137,21 +137,21 @@ func (cfg *Config) RegisterFlags(f *flag.FlagSet, logger log.Logger) {
 	f.IntVar(&cfg.CompactionRetries, "compactor.compaction-retries", 3, "How many times to retry a failed compaction within a single compaction run.")
 	f.IntVar(&cfg.CompactionConcurrency, "compactor.compaction-concurrency", 1, "Max number of concurrent compactions running.")
 	f.DurationVar(&cfg.CompactionWaitPeriod, "compactor.first-level-compaction-wait-period", 25*time.Minute, "How long the compactor waits before compacting first-level blocks that are uploaded by the ingesters. This configuration option allows for the reduction of cases where the compactor begins to compact blocks before all ingesters have uploaded their blocks to the storage.")
-	f.DurationVar(&cfg.CleanupInterval, "compactor.cleanup-interval", 15*time.Minute, "How frequently compactor should run blocks cleanup and maintenance, as well as update the bucket index.")
+	f.DurationVar(&cfg.CleanupInterval, "compactor.cleanup-interval", 15*time.Minute, "How frequently the compactor should run blocks cleanup and maintenance, as well as update the bucket index.")
 	f.IntVar(&cfg.CleanupConcurrency, "compactor.cleanup-concurrency", 20, "Max number of tenants for which blocks cleanup and maintenance should run concurrently.")
 	f.StringVar(&cfg.CompactionJobsOrder, "compactor.compaction-jobs-order", CompactionOrderOldestFirst, fmt.Sprintf("The sorting to use when deciding which compaction jobs should run first for a given tenant. Supported values are: %s.", strings.Join(CompactionOrders, ", ")))
 	f.DurationVar(&cfg.DeletionDelay, "compactor.deletion-delay", 12*time.Hour, "Time before a block marked for deletion is deleted from bucket. "+
-		"If not 0, blocks will be marked for deletion and compactor component will permanently delete blocks marked for deletion from the bucket. "+
+		"If not 0, blocks will be marked for deletion and the compactor will permanently delete blocks marked for deletion from the bucket. "+
 		"If 0, blocks will be deleted straight away. Note that deleting blocks immediately can cause query failures.")
-	f.DurationVar(&cfg.TenantCleanupDelay, "compactor.tenant-cleanup-delay", 6*time.Hour, "For tenants marked for deletion, this is time between deleting of last block, and doing final cleanup (marker files, debug files) of the tenant.")
+	f.DurationVar(&cfg.TenantCleanupDelay, "compactor.tenant-cleanup-delay", 6*time.Hour, "For tenants marked for deletion, this is the time between deletion of the last block, and doing final cleanup (marker files, debug files) of the tenant.")
 	// compactor concurrency options
 	f.IntVar(&cfg.MaxOpeningBlocksConcurrency, "compactor.max-opening-blocks-concurrency", 1, "Number of goroutines opening blocks before compaction.")
-	f.IntVar(&cfg.MaxClosingBlocksConcurrency, "compactor.max-closing-blocks-concurrency", 1, "Max number of blocks that can be closed concurrently during split compaction. Note that closing of newly compacted block uses a lot of memory for writing index.")
+	f.IntVar(&cfg.MaxClosingBlocksConcurrency, "compactor.max-closing-blocks-concurrency", 1, "Max number of blocks that can be closed concurrently during split compaction. Note that closing a newly compacted block uses a lot of memory for writing the index.")
 	f.IntVar(&cfg.SymbolsFlushersConcurrency, "compactor.symbols-flushers-concurrency", 1, "Number of symbols flushers used when doing split compaction.")
 	f.IntVar(&cfg.MaxBlockUploadValidationConcurrency, "compactor.max-block-upload-validation-concurrency", 1, "Max number of uploaded blocks that can be validated concurrently. 0 = no limit.")
 
-	f.Var(&cfg.EnabledTenants, "compactor.enabled-tenants", "Comma separated list of tenants that can be compacted. If specified, only these tenants will be compacted by compactor, otherwise all tenants can be compacted. Subject to sharding.")
-	f.Var(&cfg.DisabledTenants, "compactor.disabled-tenants", "Comma separated list of tenants that cannot be compacted by this compactor. If specified, and compactor would normally pick given tenant for compaction (via -compactor.enabled-tenants or sharding), it will be ignored instead.")
+	f.Var(&cfg.EnabledTenants, "compactor.enabled-tenants", "Comma separated list of tenants that can be compacted. If specified, only these tenants will be compacted by the compactor, otherwise all tenants can be compacted. Subject to sharding.")
+	f.Var(&cfg.DisabledTenants, "compactor.disabled-tenants", "Comma separated list of tenants that cannot be compacted by the compactor. If specified, and the compactor would normally pick a given tenant for compaction (via -compactor.enabled-tenants or sharding), it will be ignored instead.")
 }
 
 func (cfg *Config) Validate() error {
@@ -185,23 +185,23 @@ func (cfg *Config) Validate() error {
 type ConfigProvider interface {
 	bucket.TenantConfigProvider
 
-	// CompactorBlocksRetentionPeriod returns the retention period for a given user.
-	CompactorBlocksRetentionPeriod(user string) time.Duration
+	// CompactorBlocksRetentionPeriod returns the retention period for a given tenant.
+	CompactorBlocksRetentionPeriod(tenantID string) time.Duration
 
 	// CompactorSplitAndMergeShards returns the number of shards to use when splitting blocks.
-	CompactorSplitAndMergeShards(userID string) int
+	CompactorSplitAndMergeShards(tenantID string) int
 
 	// CompactorSplitGroups returns the number of groups that blocks used for splitting should
 	// be grouped into. Different groups are then split by different jobs.
-	CompactorSplitGroups(userID string) int
+	CompactorSplitGroups(tenantID string) int
 
-	// CompactorTenantShardSize returns number of compactors that this user can use. 0 = all compactors.
-	CompactorTenantShardSize(userID string) int
+	// CompactorTenantShardSize returns the number of compactors that this tenant can use. 0 = all compactors.
+	CompactorTenantShardSize(tenantID string) int
 
-	// CompactorPartialBlockDeletionDelay returns the partial block delay time period for a given user,
-	// and whether the configured value was valid. If the value wasn't valid, the returned delay is the default one
-	// and the caller is responsible to warn the Mimir operator about it.
-	CompactorPartialBlockDeletionDelay(userID string) (delay time.Duration, valid bool)
+	// CompactorPartialBlockDeletionDelay returns the partial block delay time period for a given tenant,
+	// and whether the configured value is valid. If the value isn't valid, the returned delay is the default one
+	// and the caller is responsible for warning the Mimir operator about it.
+	CompactorPartialBlockDeletionDelay(tenant string) (delay time.Duration, valid bool)
 
 	// CompactorBlockUploadEnabled returns whether block upload is enabled for a given tenant.
 	CompactorBlockUploadEnabled(tenantID string) bool
@@ -212,11 +212,12 @@ type ConfigProvider interface {
 	// CompactorBlockUploadVerifyChunks returns whether chunk verification is enabled for a given tenant.
 	CompactorBlockUploadVerifyChunks(tenantID string) bool
 
-	// CompactorBlockUploadMaxBlockSizeBytes returns the maximum size in bytes of a block that is allowed to be uploaded or validated for a given user.
-	CompactorBlockUploadMaxBlockSizeBytes(userID string) int64
+	// CompactorBlockUploadMaxBlockSizeBytes returns the maximum size in bytes of a block that is allowed to be uploaded
+	// or validated for a given tenant.
+	CompactorBlockUploadMaxBlockSizeBytes(tenantID string) int64
 }
 
-// MultitenantCompactor is a multi-tenant TSDB blocks compactor based on Thanos.
+// MultitenantCompactor is a multi-tenant TSDB block compactor based on Thanos.
 type MultitenantCompactor struct {
 	services.Service
 
@@ -227,16 +228,16 @@ type MultitenantCompactor struct {
 	parentLogger log.Logger
 	registerer   prometheus.Registerer
 
-	// Functions that creates bucket client, grouper, planner and compactor using the context.
+	// Functions that create bucket client, grouper, planner and compactor using the context.
 	// Useful for injecting mock objects from tests.
 	bucketClientFactory    func(ctx context.Context) (objstore.Bucket, error)
 	blocksGrouperFactory   BlocksGrouperFactory
 	blocksCompactorFactory BlocksCompactorFactory
 
-	// Blocks cleaner is responsible to hard delete blocks marked for deletion.
+	// Blocks cleaner is responsible for hard deletion of blocks marked for deletion.
 	blocksCleaner *BlocksCleaner
 
-	// Underlying compactor and planner used to compact TSDB blocks.
+	// Underlying compactor and planner for compacting TSDB blocks.
 	blocksCompactor Compactor
 	blocksPlanner   Planner
 
@@ -415,7 +416,6 @@ func (c *MultitenantCompactor) starting(ctx context.Context) error {
 	// Wrap the bucket client to write block deletion marks in the global location too.
 	c.bucketClient = block.BucketWithGlobalMarkers(c.bucketClient)
 
-	// Initialize the compactors ring if sharding is enabled.
 	c.ring, c.ringLifecycler, err = newRingAndLifecycler(c.compactorCfg.ShardingRing, c.logger, c.registerer)
 	if err != nil {
 		return err
