@@ -18,21 +18,21 @@ import (
 
 const duplicateMeta = "duplicate"
 
-// ShardAwareDeduplicateFilter is a MetaFetcher filter that filters out older blocks that have exactly the same data.
+// shardAwareDeduplicateFilter is a MetaFetcher filter that filters out older blocks that have exactly the same data.
 // Not go-routine safe.
-type ShardAwareDeduplicateFilter struct {
+type shardAwareDeduplicateFilter struct {
 	// List of duplicate IDs after last Filter call.
 	duplicateIDs []ulid.ULID
 }
 
-// NewShardAwareDeduplicateFilter creates ShardAwareDeduplicateFilter.
-func NewShardAwareDeduplicateFilter() *ShardAwareDeduplicateFilter {
-	return &ShardAwareDeduplicateFilter{}
+// newShardAwareDeduplicateFilter creates shardAwareDeduplicateFilter.
+func newShardAwareDeduplicateFilter() *shardAwareDeduplicateFilter {
+	return &shardAwareDeduplicateFilter{}
 }
 
 // Filter filters out from metas, the initial map of blocks, all the blocks that are contained in other, compacted, blocks.
 // The removed blocks are source blocks of the blocks that remain in metas after the filtering is executed.
-func (f *ShardAwareDeduplicateFilter) Filter(ctx context.Context, metas map[ulid.ULID]*block.Meta, synced block.GaugeVec) error {
+func (f *shardAwareDeduplicateFilter) Filter(ctx context.Context, metas map[ulid.ULID]*block.Meta, synced block.GaugeVec) error {
 	f.duplicateIDs = f.duplicateIDs[:0]
 
 	metasByResolution := make(map[int64][]*block.Meta)
@@ -113,7 +113,7 @@ func (f *ShardAwareDeduplicateFilter) Filter(ctx context.Context, metas map[ulid
 // There is a lot of repetition in this tree, but individual block nodes are shared (it would be difficult to draw that though).
 // So for example there is only one ULID(9) node, referenced from nodes 5, 6, 7, 8 (each of them also exists only once). See
 // blockWithSuccessors structure -- it uses maps to pointers to handle all this cross-referencing correctly.
-func (f *ShardAwareDeduplicateFilter) findDuplicates(ctx context.Context, input []*block.Meta) (map[ulid.ULID]struct{}, error) {
+func (f *shardAwareDeduplicateFilter) findDuplicates(ctx context.Context, input []*block.Meta) (map[ulid.ULID]struct{}, error) {
 	// We create a tree of blocks with successors (blockWithSuccessors) by
 	// 1) sorting the input blocks by number of sources, and
 	// 2) iterating through each input block, and adding it to the correct place in the tree of blocks with successors.
@@ -144,8 +144,8 @@ func (f *ShardAwareDeduplicateFilter) findDuplicates(ctx context.Context, input 
 	return duplicateULIDs, nil
 }
 
-// DuplicateIDs returns slice of block ids that are filtered out by ShardAwareDeduplicateFilter.
-func (f *ShardAwareDeduplicateFilter) DuplicateIDs() []ulid.ULID {
+// DuplicateIDs returns slice of block ids that are filtered out by shardAwareDeduplicateFilter.
+func (f *shardAwareDeduplicateFilter) DuplicateIDs() []ulid.ULID {
 	return f.duplicateIDs
 }
 
