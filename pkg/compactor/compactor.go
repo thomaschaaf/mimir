@@ -621,7 +621,7 @@ func (c *MultitenantCompactor) compactUsers(ctx context.Context) {
 
 		level.Info(c.logger).Log("msg", "starting compaction of user blocks", "user", userID)
 
-		if err = c.compactUserWithRetries(ctx, userID); err != nil {
+		if err := c.compactUserWithRetries(ctx, userID); err != nil {
 			switch {
 			case errors.Is(err, context.Canceled):
 				// We don't want to count shutdowns as failed compactions because we will pick up with the rest of the compaction after the restart.

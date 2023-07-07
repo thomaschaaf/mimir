@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -290,7 +291,7 @@ func (c *BucketCompactor) runCompactionJob(ctx context.Context, job *Job) (shoul
 		}
 
 		if err := stats.CriticalErr(); err != nil {
-			return errors.Wrapf(err, "block with not healthy index found %s; Compaction level %v; Labels: %v", bdir, meta.Compaction.Level, meta.Thanos.Labels)
+			return errors.Wrapf(err, "block with unhealthy index found %s; Compaction level %v; Labels: %v", bdir, meta.Compaction.Level, meta.Thanos.Labels)
 		}
 
 		if err := stats.OutOfOrderChunksErr(); err != nil {
@@ -298,7 +299,7 @@ func (c *BucketCompactor) runCompactionJob(ctx context.Context, job *Job) (shoul
 		}
 
 		if err := stats.Issue347OutsideChunksErr(); err != nil {
-			return issue347Error{err: errors.Wrapf(err, "invalid, but reparable block %s", bdir), id: meta.ULID}
+			return issue347Error{err: errors.Wrapf(err, "invalid, but repairable block %s", bdir), id: meta.ULID}
 		}
 
 		if err := stats.OutOfOrderLabelsErr(); err != nil {
@@ -314,9 +315,10 @@ func (c *BucketCompactor) runCompactionJob(ctx context.Context, job *Job) (shoul
 	for ix, meta := range toCompact {
 		blocksToCompactDirs[ix] = filepath.Join(subDir, meta.ULID.String())
 	}
+	toCompactStrs := strings.Join(blocksToCompactDirs, ",")
 
 	elapsed := time.Since(downloadBegin)
-	level.Info(jobLogger).Log("msg", "downloaded and verified blocks; compacting blocks", "blocks", len(blocksToCompactDirs), "plan", fmt.Sprintf("%v", blocksToCompactDirs), "duration", elapsed, "duration_ms", elapsed.Milliseconds())
+	level.Info(jobLogger).Log("msg", "downloaded and verified blocks; compacting blocks", "blocks", len(blocksToCompactDirs), "plan", toCompactStrs, "duration", elapsed, "duration_ms", elapsed.Milliseconds())
 
 	compactionBegin := time.Now()
 
@@ -328,17 +330,19 @@ func (c *BucketCompactor) runCompactionJob(ctx context.Context, job *Job) (shoul
 		compIDs = append(compIDs, compID)
 	}
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "compact blocks %v", blocksToCompactDirs)
+		return false, nil, errors.Wrapf(err, "compact blocks %s", toCompactStrs)
 	}
 
 	if !hasNonZeroULIDs(compIDs) {
 		// Prometheus compactor found that the compacted block would have no samples.
-		level.Info(jobLogger).Log("msg", "compacted block would have no samples, deleting source blocks", "blocks", fmt.Sprintf("%v", blocksToCompactDirs))
+		level.Info(jobLogger).Log("msg", "compacted block would have no samples, deleting source blocks", "blocks", blocksToCompactDirs)
 		for _, meta := range toCompact {
-			if meta.Stats.NumSamples == 0 {
-				if err := deleteBlock(c.bkt, meta.ULID, filepath.Join(subDir, meta.ULID.String()), jobLogger, c.metrics.blocksMarkedForDeletion); err != nil {
-					level.Warn(jobLogger).Log("msg", "failed to mark for deletion an empty block found during compaction", "block", meta.ULID, "err", err)
-				}
+			if meta.Stats.NumSamples > 0 {
+				continue
+			}
+
+			if err := deleteBlock(c.bkt, meta.ULID, filepath.Join(subDir, meta.ULID.String()), jobLogger, c.metrics.blocksMarkedForDeletion); err != nil {
+				level.Warn(jobLogger).Log("msg", "failed to mark for deletion an empty block found during compaction", "block", meta.ULID, "err", err)
 			}
 		}
 		// Even though this block was empty, there may be more work to do.
@@ -346,7 +350,7 @@ func (c *BucketCompactor) runCompactionJob(ctx context.Context, job *Job) (shoul
 	}
 
 	elapsed = time.Since(compactionBegin)
-	level.Info(jobLogger).Log("msg", "compacted blocks", "new", fmt.Sprintf("%v", compIDs), "blocks", fmt.Sprintf("%v", blocksToCompactDirs), "duration", elapsed, "duration_ms", elapsed.Milliseconds())
+	level.Info(jobLogger).Log("msg", "compacted blocks", "new", fmt.Sprintf("%v", compIDs), "blocks", blocksToCompactDirs, "duration", elapsed, "duration_ms", elapsed.Milliseconds())
 
 	uploadBegin := time.Now()
 	uploadedBlocks := atomic.NewInt64(0)
@@ -359,7 +363,7 @@ func (c *BucketCompactor) runCompactionJob(ctx context.Context, job *Job) (shoul
 
 		bdir := filepath.Join(subDir, blockToUpload.ulid.String())
 
-		// When splitting is enabled, we need to inject the shard ID as external label.
+		// When splitting is enabled, we need to inject the shard ID as an external label.
 		newLabels := job.Labels().Map()
 		if job.UseSplitting() {
 			newLabels[mimir_tsdb.CompactorShardIDExternalLabel] = sharding.FormatShardIDLabelValue(uint64(blockToUpload.shardIndex), uint64(job.SplittingShards()))
@@ -375,7 +379,7 @@ func (c *BucketCompactor) runCompactionJob(ctx context.Context, job *Job) (shoul
 			return errors.Wrapf(err, "failed to finalize the block %s", bdir)
 		}
 
-		if err = os.Remove(filepath.Join(bdir, "tombstones")); err != nil {
+		if err := os.Remove(filepath.Join(bdir, "tombstones")); err != nil {
 			return errors.Wrap(err, "remove tombstones")
 		}
 
