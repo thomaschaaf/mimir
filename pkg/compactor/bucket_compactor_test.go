@@ -58,7 +58,7 @@ func TestGroupKey(t *testing.T) {
 		},
 	} {
 		if ok := t.Run("", func(t *testing.T) {
-			assert.Equal(t, tcase.expected, DefaultGroupKey(tcase.input))
+			assert.Equal(t, tcase.expected, defaultGroupKeyFromBlock(tcase.input))
 		}); !ok {
 			return
 		}
@@ -279,4 +279,10 @@ func TestConvertCompactionResultToForEachJobs(t *testing.T) {
 	require.Len(t, res, 2)
 	require.Equal(t, ulidWithShardIndex{ulid: ulid1, shardIndex: 1}, res[0])
 	require.Equal(t, ulidWithShardIndex{ulid: ulid2, shardIndex: 3}, res[1])
+}
+
+// defaultGroupKeyFromBlock returns a unique identifier for the group the block belongs to, based on
+// the DefaultGrouper logic. It considers the downsampling resolution and the block's labels.
+func defaultGroupKeyFromBlock(meta block.ThanosMeta) string {
+	return defaultGroupKey(meta.Downsample.Resolution, labels.FromMap(meta.Labels))
 }

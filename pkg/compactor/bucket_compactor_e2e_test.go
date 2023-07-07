@@ -384,7 +384,7 @@ func TestGroupCompactE2E(t *testing.T) {
 				return err
 			}
 
-			others[DefaultGroupKey(meta.Thanos)] = meta
+			others[defaultGroupKeyFromBlock(meta.Thanos)] = meta
 			return nil
 		}))
 

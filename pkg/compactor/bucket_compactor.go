@@ -119,7 +119,7 @@ func (s *metaSyncer) Metas() map[ulid.ULID]*block.Meta {
 
 // GarbageCollect marks blocks for deletion from bucket if their data is available as part of a
 // block with a higher compaction level.
-// Call to SyncMetas function is required to populate duplicateIDs in duplicateBlocksFilter.
+// A call to SyncMetas function is required to populate duplicateIDs in duplicateBlocksFilter.
 func (s *metaSyncer) GarbageCollect(ctx context.Context) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -162,12 +162,6 @@ type Grouper interface {
 	// Groups returns the compaction jobs for all blocks currently known to the metaSyncer.
 	// It creates all jobs from scratch on every call.
 	Groups(blocks map[ulid.ULID]*block.Meta) (res []*Job, err error)
-}
-
-// DefaultGroupKey returns a unique identifier for the group the block belongs to, based on
-// the DefaultGrouper logic. It considers the downsampling resolution and the block's labels.
-func DefaultGroupKey(meta block.ThanosMeta) string {
-	return defaultGroupKey(meta.Downsample.Resolution, labels.FromMap(meta.Labels))
 }
 
 func defaultGroupKey(res int64, lbls labels.Labels) string {
