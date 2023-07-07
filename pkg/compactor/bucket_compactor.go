@@ -79,7 +79,7 @@ func newSyncerMetrics(reg prometheus.Registerer, blocksMarkedForDeletion prometh
 }
 
 // newMetaSyncer returns a new metaSyncer for the given Bucket and directory.
-// Blocks must be at least as old as the sync delay for being considered.
+// Blocks must be at least as old as the sync delay to be considered.
 func newMetaSyncer(logger log.Logger, reg prometheus.Registerer, bkt objstore.Bucket, fetcher *block.MetaFetcher, deduplicateBlocksFilter deduplicateFilter, blocksMarkedForDeletion prometheus.Counter) (*metaSyncer, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
@@ -99,7 +99,7 @@ func (s *metaSyncer) SyncMetas(ctx context.Context) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	// While fetching blocks, we filter out blocks that were marked for deletion.
+	// While fetching blocks, we filter out blocks marked for deletion.
 	// No deletion delay is used -- all blocks with deletion marker are ignored, and not considered for compaction.
 	metas, _, err := s.fetcher.FetchWithoutMarkedForDeletion(ctx)
 	if err != nil {
