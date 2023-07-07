@@ -224,8 +224,8 @@ type Compactor interface {
 	Compact(dest string, dirs []string, open []*tsdb.Block) (ulid.ULID, error)
 
 	// CompactWithSplitting merges and splits the input blocks into shardCount number of output blocks,
-	// and returns slice of block IDs. Position of returned block ID in the result slice corresponds to the shard index.
-	// If given output block has no series, corresponding block ID will be zero ULID value.
+	// and returns a slice of block IDs. The position of the returned block ID in the result slice corresponds to the shard index.
+	// If the given output block has no series, the corresponding block ID will be the zero ULID value.
 	CompactWithSplitting(dest string, dirs []string, open []*tsdb.Block, shardCount uint64) (result []ulid.ULID, _ error)
 }
 
@@ -298,7 +298,7 @@ func (c *BucketCompactor) runCompactionJob(ctx context.Context, job *Job) (shoul
 		}
 
 		if err := stats.Issue347OutsideChunksErr(); err != nil {
-			return issue347Error(errors.Wrapf(err, "invalid, but reparable block %s", bdir), meta.ULID)
+			return issue347Error{err: errors.Wrapf(err, "invalid, but reparable block %s", bdir), id: meta.ULID}
 		}
 
 		if err := stats.OutOfOrderLabelsErr(); err != nil {
@@ -438,24 +438,20 @@ type ulidWithShardIndex struct {
 	shardIndex int
 }
 
-// Issue347Error is a type wrapper for errors that should invoke repair process for broken block.
-type Issue347Error struct {
+// issue347Error is a type wrapper for errors that should invoke repair process for broken block.
+type issue347Error struct {
 	err error
 
 	id ulid.ULID
 }
 
-func issue347Error(err error, brokenBlock ulid.ULID) Issue347Error {
-	return Issue347Error{err: err, id: brokenBlock}
-}
-
-func (e Issue347Error) Error() string {
+func (e issue347Error) Error() string {
 	return e.err.Error()
 }
 
-// IsIssue347Error returns true if the base error is a Issue347Error.
-func IsIssue347Error(err error) bool {
-	_, ok := errors.Cause(err).(Issue347Error)
+// isIssue347Error returns true if the base error is an issue347Error.
+func isIssue347Error(err error) bool {
+	_, ok := errors.Cause(err).(issue347Error)
 	return ok
 }
 
@@ -479,9 +475,9 @@ func IsOutOfOrderChunkError(err error) bool {
 	return ok
 }
 
-// RepairIssue347 repairs the https://github.com/prometheus/tsdb/issues/347 issue when having issue347Error.
-func RepairIssue347(ctx context.Context, logger log.Logger, bkt objstore.Bucket, blocksMarkedForDeletion prometheus.Counter, issue347Err error) error {
-	ie, ok := errors.Cause(issue347Err).(Issue347Error)
+// repairIssue347 repairs the https://github.com/prometheus/tsdb/issues/347 issue when having issue347Error.
+func repairIssue347(ctx context.Context, logger log.Logger, bkt objstore.Bucket, blocksMarkedForDeletion prometheus.Counter, issue347Err error) error {
+	ie, ok := errors.Cause(issue347Err).(issue347Error)
 	if !ok {
 		return errors.Errorf("Given error is not an issue347 error: %v", issue347Err)
 	}
@@ -729,8 +725,8 @@ func (c *BucketCompactor) Compact(ctx context.Context, maxCompactionTime time.Du
 					// At this point the compaction has failed.
 					c.metrics.groupCompactionRunsFailed.Inc()
 
-					if IsIssue347Error(err) {
-						if err := RepairIssue347(workCtx, c.logger, c.bkt, c.sy.metrics.blocksMarkedForDeletion, err); err == nil {
+					if isIssue347Error(err) {
+						if err := repairIssue347(workCtx, c.logger, c.bkt, c.sy.metrics.blocksMarkedForDeletion, err); err == nil {
 							mtx.Lock()
 							finishedAllJobs = false
 							mtx.Unlock()

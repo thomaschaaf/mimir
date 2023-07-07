@@ -340,7 +340,7 @@ func TestShardAwareDeduplicateFilter_Filter(t *testing.T) {
 
 	for name, tcase := range testcases {
 		t.Run(name, func(t *testing.T) {
-			f := NewShardAwareDeduplicateFilter()
+			f := newShardAwareDeduplicateFilter()
 			m := newTestFetcherMetrics()
 
 			metas := make(map[ulid.ULID]*block.Meta, len(tcase.input))
@@ -391,13 +391,12 @@ func newTestFetcherMetrics() *block.FetcherMetrics {
 }
 
 func BenchmarkDeduplicateFilter_Filter(b *testing.B) {
-
 	var (
 		reg   prometheus.Registerer
 		count uint64
 	)
 
-	dedupFilter := NewShardAwareDeduplicateFilter()
+	dedupFilter := newShardAwareDeduplicateFilter()
 	synced := extprom.NewTxGaugeVec(reg, prometheus.GaugeOpts{}, []string{"state"})
 
 	for blocksNum := 10; blocksNum <= 10000; blocksNum *= 10 {
