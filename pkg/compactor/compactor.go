@@ -859,7 +859,10 @@ func (s *splitAndMergeShardingStrategy) ownJob(job *Job) (bool, error) {
 func instanceOwnsTokenInRing(r ring.ReadRing, instanceAddr string, key string) (bool, error) {
 	// Hash the key.
 	hasher := fnv.New32a()
-	_, _ = hasher.Write([]byte(key))
+	_, err := hasher.Write([]byte(key))
+	if err != nil {
+		return false, errors.Wrap(err, "hash sharding key")
+	}
 	hash := hasher.Sum32()
 
 	// Check whether this compactor instance owns the token.
