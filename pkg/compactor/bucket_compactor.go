@@ -95,7 +95,7 @@ func newMetaSyncer(logger log.Logger, reg prometheus.Registerer, bkt objstore.Bu
 	}, nil
 }
 
-// SyncMetas synchronizes local state of block metas with what we have in the bucket.
+// SyncMetas synchronizes the local state of block metas with what we have in the bucket.
 func (s *metaSyncer) SyncMetas(ctx context.Context) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -737,7 +737,7 @@ func (c *BucketCompactor) Compact(ctx context.Context, maxCompactionTime time.Du
 							continue
 						}
 					}
-					// If block has an out of order chunk and we have been configured to skip it,
+					// If the block has an out of order chunk and we have been configured to skip it,
 					// then we can mark the block for no compaction so that the next compaction run
 					// will skip it.
 					if IsOutOfOrderChunkError(err) && c.skipBlocksWithOutOfOrderChunks {
