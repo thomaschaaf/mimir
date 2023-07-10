@@ -737,7 +737,7 @@ func (c *BucketCompactor) Compact(ctx context.Context, maxCompactionTime time.Du
 							continue
 						}
 					}
-					// If block has out of order chunk and it has been configured to skip it,
+					// If block has an out of order chunk and we have been configured to skip it,
 					// then we can mark the block for no compaction so that the next compaction run
 					// will skip it.
 					if IsOutOfOrderChunkError(err) && c.skipBlocksWithOutOfOrderChunks {
@@ -747,7 +747,7 @@ func (c *BucketCompactor) Compact(ctx context.Context, maxCompactionTime time.Du
 							c.bkt,
 							err.(OutOfOrderChunksError).id,
 							block.OutOfOrderChunksNoCompactReason,
-							"OutofOrderChunk: marking block with out-of-order series/chunks to as no compact to unblock compaction", c.metrics.blocksMarkedForNoCompact); err == nil {
+							"OutofOrderChunk: marking block with out-of-order series/chunks as no compact to unblock compaction", c.metrics.blocksMarkedForNoCompact); err == nil {
 							mtx.Lock()
 							finishedAllJobs = false
 							mtx.Unlock()
