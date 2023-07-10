@@ -384,7 +384,7 @@ func newMultitenantCompactor(
 		level.Info(c.logger).Log("msg", "compactor using disabled users", "disabled", strings.Join(compactorCfg.DisabledTenants, ", "))
 	}
 
-	c.jobsOrder = GetJobsOrderFunction(compactorCfg.CompactionJobsOrder)
+	c.jobsOrder = getJobsOrderFunction(compactorCfg.CompactionJobsOrder)
 	if c.jobsOrder == nil {
 		return nil, errInvalidCompactionOrder
 	}
@@ -474,7 +474,7 @@ func (c *MultitenantCompactor) starting(ctx context.Context) error {
 		CleanupConcurrency:      c.compactorCfg.CleanupConcurrency,
 		TenantCleanupDelay:      c.compactorCfg.TenantCleanupDelay,
 		DeleteBlocksConcurrency: defaultDeleteBlocksConcurrency,
-	}, c.bucketClient, c.shardingStrategy.blocksCleanerOwnUser, c.cfgProvider, c.parentLogger, c.registerer)
+	}, c.bucketClient, c.shardingStrategy.blocksCleanerOwnsUser, c.cfgProvider, c.parentLogger, c.registerer)
 
 	// Start blocks cleaner asynchronously, don't wait until initial cleanup is finished.
 	if err := c.blocksCleaner.StartAsync(ctx); err != nil {
@@ -597,7 +597,7 @@ func (c *MultitenantCompactor) compactUsers(ctx context.Context) {
 		}
 
 		// Ensure the user ID belongs to our shard.
-		if owned, err := c.shardingStrategy.compactorOwnUser(userID); err != nil {
+		if owned, err := c.shardingStrategy.compactorOwnsUser(userID); err != nil {
 			c.compactionRunSkippedTenants.Inc()
 			level.Warn(c.logger).Log("msg", "unable to check if user is owned by this shard", "user", userID, "err", err)
 			continue
@@ -698,7 +698,7 @@ func (c *MultitenantCompactor) compactUser(ctx context.Context, userID string) e
 	userLogger := util_log.WithUserID(userID, c.logger)
 
 	// Filters out duplicate blocks that can be formed from two or more overlapping
-	// blocks that fully submatches the source blocks of the older blocks.
+	// blocks that fully submatch the source blocks of the older blocks.
 	deduplicateBlocksFilter := newShardAwareDeduplicateFilter()
 
 	// List of filters to apply (order matters).
@@ -796,9 +796,9 @@ func (c *MultitenantCompactor) discoverUsers(ctx context.Context) ([]string, err
 
 // shardingStrategy describes whether compactor "owns" given user or job.
 type shardingStrategy interface {
-	compactorOwnUser(userID string) (bool, error)
-	// blocksCleanerOwnUser must be concurrency-safe
-	blocksCleanerOwnUser(userID string) (bool, error)
+	compactorOwnsUser(userID string) (bool, error)
+	// blocksCleanerOwnsUser must be concurrency-safe
+	blocksCleanerOwnsUser(userID string) (bool, error)
 	ownJob(job *Job) (bool, error)
 }
 
@@ -822,8 +822,8 @@ func newSplitAndMergeShardingStrategy(allowedTenants *util.AllowedTenants, ring 
 	}
 }
 
-// Only single instance in the subring can run blocks cleaner for given user. blocksCleanerOwnUser is concurrency-safe.
-func (s *splitAndMergeShardingStrategy) blocksCleanerOwnUser(userID string) (bool, error) {
+// Only single instance in the subring can run blocks cleaner for given user. blocksCleanerOwnsUser is concurrency-safe.
+func (s *splitAndMergeShardingStrategy) blocksCleanerOwnsUser(userID string) (bool, error) {
 	if !s.allowedTenants.IsAllowed(userID) {
 		return false, nil
 	}
@@ -834,7 +834,7 @@ func (s *splitAndMergeShardingStrategy) blocksCleanerOwnUser(userID string) (boo
 }
 
 // ALL compactors should plan jobs for all users.
-func (s *splitAndMergeShardingStrategy) compactorOwnUser(userID string) (bool, error) {
+func (s *splitAndMergeShardingStrategy) compactorOwnsUser(userID string) (bool, error) {
 	if !s.allowedTenants.IsAllowed(userID) {
 		return false, nil
 	}
@@ -846,7 +846,7 @@ func (s *splitAndMergeShardingStrategy) compactorOwnUser(userID string) (bool, e
 
 // Only single compactor should execute the job.
 func (s *splitAndMergeShardingStrategy) ownJob(job *Job) (bool, error) {
-	ok, err := s.compactorOwnUser(job.UserID())
+	ok, err := s.compactorOwnsUser(job.UserID())
 	if err != nil || !ok {
 		return ok, err
 	}

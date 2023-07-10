@@ -691,7 +691,7 @@ func (c *BucketCompactor) Compact(ctx context.Context, maxCompactionTime time.Du
 		)
 		defer workCtxCancel()
 
-		// Set up workers who will compact the jobs when the jobs are ready.
+		// Set up workers which will compact the jobs when the jobs are ready.
 		// They will compact available jobs until they encounter an error, after which they will stop.
 		for i := 0; i < c.concurrency; i++ {
 			wg.Add(1)
