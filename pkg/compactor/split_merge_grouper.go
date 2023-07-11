@@ -74,7 +74,7 @@ func (g *SplitAndMergeGrouper) Groups(blocks map[ulid.ULID]*block.Meta) (res []*
 		resolution := job.blocks[0].Thanos.Downsample.Resolution
 		externalLabels := labels.FromMap(job.blocks[0].Thanos.Labels)
 
-		compactionJob := NewJob(
+		compactionJob := newJob(
 			g.userID,
 			groupKey,
 			externalLabels,
@@ -106,7 +106,7 @@ func planCompaction(userID string, blocks []*block.Meta, ranges []int64, shardCo
 	}
 
 	// First of all we have to group blocks using the default grouping, but not
-	// considering the shard ID in the external labels (because will be checked later).
+	// considering the shard ID in the external labels (because it will be checked later).
 	mainGroups := map[string][]*block.Meta{}
 	for _, b := range blocks {
 		key := defaultGroupKeyWithoutShardID(b.Thanos)
