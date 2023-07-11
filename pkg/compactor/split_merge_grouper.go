@@ -174,7 +174,7 @@ func planCompaction(userID string, blocks []*block.Meta, ranges []int64, shardCo
 	return jobs
 }
 
-// planCompactionByRange analyze the input blocks and returns a list of compaction jobs to
+// planCompactionByRange analyzes the input blocks and returns a list of compaction jobs to
 // compact blocks for the given compaction time range. Input blocks MUST be sorted by MinTime.
 func planCompactionByRange(userID string, blocks []*block.Meta, tr int64, isSmallestRange bool, shardCount, splitGroups uint32) (jobs []*job) {
 	groups := groupBlocksByRange(blocks, tr)
@@ -222,8 +222,6 @@ func planSplitting(userID string, group blocksGroup, splitGroups uint32) []*job 
 		return nil
 	}
 
-	jobs := map[uint32]*job{}
-
 	if splitGroups == 0 {
 		splitGroups = 1
 	}
@@ -231,6 +229,7 @@ func planSplitting(userID string, group blocksGroup, splitGroups uint32) []*job 
 	// The number of source blocks could be very large so, to have a better horizontal scaling, we should group
 	// the source blocks into N groups (where N = number of shards) and create a job for each group of blocks to
 	// merge and split.
+	jobs := map[uint32]*job{}
 	for _, block := range blocks {
 		splitGroup := mimir_tsdb.HashBlockID(block.ULID) % splitGroups
 
@@ -281,15 +280,13 @@ func groupBlocksByShardID(blocks []*block.Meta) map[string][]*block.Meta {
 // it returns [0-10, 10-20], [50-60], [90-100].
 func groupBlocksByRange(blocks []*block.Meta, tr int64) []blocksGroup {
 	var ret []blocksGroup
-
 	for i := 0; i < len(blocks); {
-		var (
-			group blocksGroup
-			m     = blocks[i]
-		)
-
-		group.rangeStart = getRangeStart(m, tr)
-		group.rangeEnd = group.rangeStart + tr
+		m := blocks[i]
+		rs := getRangeStart(m, tr)
+		group := blocksGroup{
+			rangeStart: rs,
+			rangeEnd:   rs + tr,
+		}
 
 		// Skip blocks that don't fall into the range. This can happen via mis-alignment or
 		// by being the multiple of the intended range.
