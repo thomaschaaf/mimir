@@ -1233,6 +1233,69 @@ func (i *Ingester) LabelValues(ctx context.Context, req *client.LabelValuesReque
 	}, nil
 }
 
+// LabelValuesStream streams label values. This implements the client.IngesterServer interface.
+func (i *Ingester) LabelValuesStream(req *client.LabelValuesRequest, stream client.Ingester_LabelValuesStreamServer) error {
+	if err := i.checkRunning(); err != nil {
+		return err
+	}
+	if err := i.checkReadOverloaded(); err != nil {
+		return err
+	}
+
+	labelName, startTimestamp, endTimestamp, matchers, err := client.FromLabelValuesRequest(req)
+	if err != nil {
+		return err
+	}
+
+	userID, err := tenant.TenantID(stream.Context())
+	if err != nil {
+		return err
+	}
+
+	db := i.getTSDB(userID)
+	if db == nil {
+		return nil
+	}
+
+	q, err := db.Querier(stream.Context(), startTimestamp, endTimestamp)
+	if err != nil {
+		return err
+	}
+	defer q.Close()
+
+	vals, _, err := q.LabelValuesStream(labelName, matchers...)
+	if err != nil {
+		return err
+	}
+
+	var response client.LabelValuesResponse
+	responseSize := 0
+	for vals.Next() {
+		val := vals.At()
+		// Send message if (response size + size of current value) is >= threshold
+		if responseSize+len(val) >= labelNamesAndValuesTargetSizeBytes {
+			if err := client.SendLabelValuesStreamResponse(stream, &response); err != nil {
+				return err
+			}
+
+			response.LabelValues = response.LabelValues[:0]
+			responseSize = 0
+		}
+
+		responseSize += len(val)
+		response.LabelValues = append(response.LabelValues, val)
+	}
+	if vals.Err() != nil {
+		return errors.Wrap(vals.Err(), "iterate over label values")
+	}
+
+	if response.Size() > 0 {
+		return client.SendLabelValuesStreamResponse(stream, &response)
+	}
+
+	return nil
+}
+
 func (i *Ingester) LabelNames(ctx context.Context, req *client.LabelNamesRequest) (*client.LabelNamesResponse, error) {
 	if err := i.checkRunning(); err != nil {
 		return nil, err
@@ -1390,7 +1453,7 @@ func (i *Ingester) AllUserStats(_ context.Context, req *client.UserStatsRequest)
 	return response, nil
 }
 
-// we defined to use the limit of 1 MB because we have default limit for the GRPC message that is 4 MB.
+// we defined to use the limit of 1 MB because we have default limit for the gRPC message that is 4 MB.
 // So, 1 MB limit will prevent reaching the limit and won't affect performance significantly.
 const labelNamesAndValuesTargetSizeBytes = 1 * 1024 * 1024
 
@@ -1505,7 +1568,7 @@ func createUserStats(db *userTSDB, req *client.UserStatsRequest) (*client.UserSt
 
 const queryStreamBatchMessageSize = 1 * 1024 * 1024
 
-// QueryStream streams metrics from a TSDB. This implements the client.IngesterServer interface
+// QueryStream streams metrics from a TSDB. This implements the client.IngesterServer interface.
 func (i *Ingester) QueryStream(req *client.QueryRequest, stream client.Ingester_QueryStreamServer) error {
 	if err := i.checkRunning(); err != nil {
 		return err

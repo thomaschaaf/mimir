@@ -159,6 +159,12 @@ type LabelQuerier interface {
 	// to label values of metrics matching the matchers.
 	LabelValues(name string, matchers ...*labels.Matcher) ([]string, Warnings, error)
 
+	// LabelValuesSet returns an iterator over all potential values for a label name.
+	// It is not safe to use the strings beyond the lifetime of the querier.
+	// If matchers are specified the returned result set is reduced
+	// to label values of metrics matching the matchers.
+	LabelValuesSet(name string, matchers ...*labels.Matcher) (LabelValuesSet, error)
+
 	// LabelNames returns all the unique label names present in the block in sorted order.
 	// If matchers are specified the returned result set is reduced
 	// to label names of metrics matching the matchers.
@@ -444,3 +450,16 @@ type ChunkIterable interface {
 }
 
 type Warnings []error
+
+// LabelValuesSet contains a set of label values.
+type LabelValuesSet interface {
+	Next() bool
+	// At returns a label value.
+	At() string
+	// The error that iteration as failed with.
+	// When an error occurs, set cannot continue to iterate.
+	Err() error
+	// A collection of warnings for the whole set.
+	// Warnings could be return even iteration has not failed with error.
+	Warnings() Warnings
+}
