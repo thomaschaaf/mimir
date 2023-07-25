@@ -273,4 +273,4 @@ replace github.com/opentracing-contrib/go-stdlib => github.com/grafana/opentraci
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/prometheusremotewrite => github.com/charleskorn/opentelemetry-collector-contrib/pkg/translator/prometheusremotewrite v0.0.0-20230717033559-beffb82bb827
 
 // Use a fork of weaveworks/common while we work out if there is a better design for https://github.com/weaveworks/common/pull/293
-replace github.com/weaveworks/common => github.com/weaveworks/common v0.0.0-20230725145421-70dc704e0cb8
+replace github.com/weaveworks/common => github.com/weaveworks/common v0.0.0-20230726073700-9927ce621459

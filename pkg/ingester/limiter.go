@@ -13,6 +13,7 @@ import (
 
 	"github.com/grafana/mimir/pkg/util"
 	"github.com/grafana/mimir/pkg/util/globalerror"
+	"github.com/grafana/mimir/pkg/util/log"
 	util_math "github.com/grafana/mimir/pkg/util/math"
 	"github.com/grafana/mimir/pkg/util/validation"
 )
@@ -40,6 +41,7 @@ type Limiter struct {
 	ring                 RingCount
 	replicationFactor    int
 	zoneAwarenessEnabled bool
+	sampler              *log.Sampler
 }
 
 // NewLimiter makes a new in-memory series limiter
@@ -54,6 +56,7 @@ func NewLimiter(
 		ring:                 ring,
 		replicationFactor:    replicationFactor,
 		zoneAwarenessEnabled: zoneAwarenessEnabled,
+		sampler:              log.NewSampler(1000),
 	}
 }
 
@@ -118,10 +121,13 @@ func (l *Limiter) FormatError(userID string, err error) error {
 func (l *Limiter) formatMaxSeriesPerUserError(userID string) error {
 	globalLimit := l.limits.MaxGlobalSeriesPerUser(userID)
 
-	return errors.New(globalerror.MaxSeriesPerUser.MessageWithPerTenantLimitConfig(
-		fmt.Sprintf("per-user series limit of %d exceeded", globalLimit),
-		validation.MaxSeriesPerUserFlag,
-	))
+	return log.SampledError{
+		Sampler: l.sampler,
+		Err: errors.New(globalerror.MaxSeriesPerUser.MessageWithPerTenantLimitConfig(
+			fmt.Sprintf("per-user series limit of %d exceeded", globalLimit),
+			validation.MaxSeriesPerUserFlag,
+		)),
+	}
 }
 
 func (l *Limiter) formatMaxSeriesPerMetricError(userID string) error {
