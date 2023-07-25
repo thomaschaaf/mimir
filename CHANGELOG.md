@@ -108,6 +108,7 @@
 
 * [CHANGE] Fix reference to `get-started` documentation directory. #5476
 * [CHANGE] Fix link to external OTLP/HTTP documentation.
+* [ENHANCEMENT] Documented options and trade-offs to query label names and values. #5582
 
 ### Tools
 
