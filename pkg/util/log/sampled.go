@@ -19,7 +19,7 @@ func (s SampledError) Unwrap() error { return s.Err }
 
 // This method is called by common logging module.
 func (s SampledError) ShouldLog(_ context.Context, _ time.Duration) bool {
-	return s.Sampler.Sample()
+	return s.Sampler == nil || s.Sampler.Sample()
 }
 
 type Sampler struct {
@@ -28,6 +28,9 @@ type Sampler struct {
 }
 
 func NewSampler(freq int64) *Sampler {
+	if freq == 0 {
+		return nil
+	}
 	return &Sampler{freq: freq}
 }
 
