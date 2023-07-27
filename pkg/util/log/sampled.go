@@ -4,6 +4,7 @@ package log
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/atomic"
@@ -14,7 +15,13 @@ type SampledError struct {
 	Sampler *Sampler
 }
 
-func (s SampledError) Error() string { return s.Err.Error() }
+func (s SampledError) Error() string {
+	if s.Sampler == nil {
+		return s.Err.Error()
+	}
+	return fmt.Sprintf("%s (sampled 1/%d)", s.Err.Error(), s.Sampler.freq)
+}
+
 func (s SampledError) Unwrap() error { return s.Err }
 
 // This method is called by common logging module.
