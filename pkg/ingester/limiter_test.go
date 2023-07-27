@@ -300,7 +300,7 @@ func runLimiterMaxFunctionTest(
 			overrides, err := validation.NewOverrides(limits, nil)
 			require.NoError(t, err)
 
-			limiter := NewLimiter(overrides, ring, testData.ringReplicationFactor, testData.ringZoneAwarenessEnabled)
+			limiter := NewLimiter(overrides, ring, testData.ringReplicationFactor, testData.ringZoneAwarenessEnabled, 0)
 			actual := runMaxFn(limiter)
 			assert.Equal(t, testData.expectedValue, actual)
 		})
@@ -353,7 +353,7 @@ func TestLimiter_AssertMaxSeriesPerMetric(t *testing.T) {
 			}, nil)
 			require.NoError(t, err)
 
-			limiter := NewLimiter(limits, ring, testData.ringReplicationFactor, false)
+			limiter := NewLimiter(limits, ring, testData.ringReplicationFactor, false, 0)
 			actual := limiter.AssertMaxSeriesPerMetric("test", testData.series)
 
 			assert.Equal(t, testData.expected, actual)
@@ -406,7 +406,7 @@ func TestLimiter_AssertMaxMetadataPerMetric(t *testing.T) {
 			}, nil)
 			require.NoError(t, err)
 
-			limiter := NewLimiter(limits, ring, testData.ringReplicationFactor, false)
+			limiter := NewLimiter(limits, ring, testData.ringReplicationFactor, false, 0)
 			actual := limiter.AssertMaxMetadataPerMetric("test", testData.metadata)
 
 			assert.Equal(t, testData.expected, actual)
@@ -460,7 +460,7 @@ func TestLimiter_AssertMaxSeriesPerUser(t *testing.T) {
 			}, nil)
 			require.NoError(t, err)
 
-			limiter := NewLimiter(limits, ring, testData.ringReplicationFactor, false)
+			limiter := NewLimiter(limits, ring, testData.ringReplicationFactor, false, 0)
 			actual := limiter.AssertMaxSeriesPerUser("test", testData.series)
 
 			assert.Equal(t, testData.expected, actual)
@@ -514,7 +514,7 @@ func TestLimiter_AssertMaxMetricsWithMetadataPerUser(t *testing.T) {
 			}, nil)
 			require.NoError(t, err)
 
-			limiter := NewLimiter(limits, ring, testData.ringReplicationFactor, false)
+			limiter := NewLimiter(limits, ring, testData.ringReplicationFactor, false, 0)
 			actual := limiter.AssertMaxMetricsWithMetadataPerUser("test", testData.metadata)
 
 			assert.Equal(t, testData.expected, actual)
@@ -537,7 +537,7 @@ func TestLimiter_FormatError(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 
-	limiter := NewLimiter(limits, ring, 3, false)
+	limiter := NewLimiter(limits, ring, 3, false, 0)
 
 	actual := limiter.FormatError("user-1", errMaxSeriesPerUserLimitExceeded)
 	assert.ErrorContains(t, actual, "per-user series limit of 100 exceeded")

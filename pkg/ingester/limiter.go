@@ -50,13 +50,14 @@ func NewLimiter(
 	ring RingCount,
 	replicationFactor int,
 	zoneAwarenessEnabled bool,
+	errorSampleRate int64,
 ) *Limiter {
 	return &Limiter{
 		limits:               limits,
 		ring:                 ring,
 		replicationFactor:    replicationFactor,
 		zoneAwarenessEnabled: zoneAwarenessEnabled,
-		sampler:              log.NewSampler(1000),
+		sampler:              log.NewSampler(errorSampleRate),
 	}
 }
 
