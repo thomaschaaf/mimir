@@ -41,7 +41,7 @@ func NewSampler(freq int64) *Sampler {
 	return &Sampler{freq: freq}
 }
 
-func (e *Sampler) Sample() bool {
-	count := e.count.Inc()
-	return count%e.freq == 0
+func (s *Sampler) Sample() bool {
+	count := s.count.Inc()
+	return count%s.freq == 0
 }
