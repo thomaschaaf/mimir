@@ -910,42 +910,42 @@ func (i *Ingester) pushSamplesToAppender(userID string, timeseries []mimirpb.Pre
 		case storage.ErrOutOfBounds:
 			stats.sampleOutOfBoundsCount++
 			updateFirstPartial(func() error {
-				return newIngestErrSampleTimestampTooOld(model.Time(timestamp), labels)
+				return i.limiter.sampler.WrapError(newIngestErrSampleTimestampTooOld(model.Time(timestamp), labels))
 			})
 			return true
 
 		case storage.ErrOutOfOrderSample:
 			stats.sampleOutOfOrderCount++
 			updateFirstPartial(func() error {
-				return newIngestErrSampleOutOfOrder(model.Time(timestamp), labels)
+				return i.limiter.sampler.WrapError(newIngestErrSampleOutOfOrder(model.Time(timestamp), labels))
 			})
 			return true
 
 		case storage.ErrTooOldSample:
 			stats.sampleTooOldCount++
 			updateFirstPartial(func() error {
-				return newIngestErrSampleTimestampTooOldOOOEnabled(model.Time(timestamp), labels, outOfOrderWindow)
+				return i.limiter.sampler.WrapError(newIngestErrSampleTimestampTooOldOOOEnabled(model.Time(timestamp), labels, outOfOrderWindow))
 			})
 			return true
 
 		case storage.ErrDuplicateSampleForTimestamp:
 			stats.newValueForTimestampCount++
 			updateFirstPartial(func() error {
-				return newIngestErrSampleDuplicateTimestamp(model.Time(timestamp), labels)
+				return i.limiter.sampler.WrapError(newIngestErrSampleDuplicateTimestamp(model.Time(timestamp), labels))
 			})
 			return true
 
 		case errMaxSeriesPerUserLimitExceeded:
 			stats.perUserSeriesLimitCount++
 			updateFirstPartial(func() error {
-				return makeLimitError(i.limiter.FormatError(userID, cause))
+				return i.limiter.sampler.WrapError(makeLimitError(i.limiter.FormatError(userID, cause)))
 			})
 			return true
 
 		case errMaxSeriesPerMetricLimitExceeded:
 			stats.perMetricSeriesLimitCount++
 			updateFirstPartial(func() error {
-				return makeMetricLimitError(mimirpb.FromLabelAdaptersToLabelsWithCopy(labels), i.limiter.FormatError(userID, cause))
+				return i.limiter.sampler.WrapError(makeMetricLimitError(mimirpb.FromLabelAdaptersToLabelsWithCopy(labels), i.limiter.FormatError(userID, cause)))
 			})
 			return true
 		}
