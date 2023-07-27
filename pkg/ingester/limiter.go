@@ -122,13 +122,10 @@ func (l *Limiter) FormatError(userID string, err error) error {
 func (l *Limiter) formatMaxSeriesPerUserError(userID string) error {
 	globalLimit := l.limits.MaxGlobalSeriesPerUser(userID)
 
-	return log.SampledError{
-		Sampler: l.sampler,
-		Err: errors.New(globalerror.MaxSeriesPerUser.MessageWithPerTenantLimitConfig(
-			fmt.Sprintf("per-user series limit of %d exceeded", globalLimit),
-			validation.MaxSeriesPerUserFlag,
-		)),
-	}
+	return l.sampler.WrapError(errors.New(globalerror.MaxSeriesPerUser.MessageWithPerTenantLimitConfig(
+		fmt.Sprintf("per-user series limit of %d exceeded", globalLimit),
+		validation.MaxSeriesPerUserFlag,
+	)))
 }
 
 func (l *Limiter) formatMaxSeriesPerMetricError(userID string) error {
