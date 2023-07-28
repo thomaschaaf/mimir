@@ -212,18 +212,15 @@ func (r *LazyBinaryReader) LabelNames() ([]string, error) {
 
 // getOrLoadReader ensures the underlying binary index-header reader has been successfully loaded.
 // Returns the reader, and an error on failure. Must be called without lock.
-func (r *LazyBinaryReader) getOrLoadReader() (result Reader, _ *sync.WaitGroup, _ error) {
+func (r *LazyBinaryReader) getOrLoadReader() (Reader, *sync.WaitGroup, error) {
 	r.readerMx.RLock()
-	defer func() {
-		if result != nil {
-			r.usedAt.Store(time.Now().UnixNano())
-			r.readerInUse.Add(1)
-		}
-		r.readerMx.RUnlock()
-	}()
+	defer r.readerMx.RUnlock()
 
 	// Nothing to do if we already tried loading it.
 	if r.reader != nil {
+		r.usedAt.Store(time.Now().UnixNano())
+		r.readerInUse.Add(1)
+
 		return r.reader, &r.readerInUse, nil
 	}
 	if r.readerErr != nil {
@@ -244,6 +241,9 @@ func (r *LazyBinaryReader) getOrLoadReader() (result Reader, _ *sync.WaitGroup, 
 	if r.reader == nil {
 		return nil, nil, errUnloadedWhileLoading
 	}
+
+	r.usedAt.Store(time.Now().UnixNano())
+	r.readerInUse.Add(1)
 	return r.reader, &r.readerInUse, nil
 }
 
