@@ -999,6 +999,11 @@ instance_limits:
 # (experimental) Enable logging of utilization based limiter CPU samples.
 # CLI flag: -ingester.log-utilization-based-limiter-cpu-samples
 [log_utilization_based_limiter_cpu_samples: <boolean> | default = false]
+
+# (advanced) Log a subset of errors once in this many times. 0 = log all of
+# them.
+# CLI flag: -ingester.error-sample-rate
+[error_sample_rate: <int> | default = 10]
 ```
 
 ### querier
